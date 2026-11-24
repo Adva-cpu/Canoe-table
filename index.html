@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Читательский дневник</title>
+    <style>
+        :root {
+            --bg: #121214;
+            --card: #1c1c20;
+            --card-hover: #25252b;
+            --text: #e4e4e7;
+            --text-muted: #9ca3af;
+            --accent: #6366f1;
+            --accent-hover: #4f46e5;
+            --border: #2e2e34;
+            --green: #10b981;
+            --yellow: #f59e0b;
+            --red: #ef4444;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background-color: var(--bg); color: var(--text); padding: 16px; max-width: 800px; margin: 0 auto; }
+
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+        h1 { font-size: 1.4rem; font-weight: 700; }
+        
+        .btn { background: var(--accent); color: white; border: none; padding: 10px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: 0.2s; }
+        .btn:hover { background: var(--accent-hover); }
+        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+        .btn-outline:hover { background: var(--card-hover); }
+
+        .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+        .stat-box { background: var(--card); padding: 12px; border-radius: 10px; border: 1px solid var(--border); text-align: center; }
+        .stat-num { font-size: 1.5rem; font-weight: 700; color: var(--accent); }
+        .stat-label { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
+
+        .controls { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+        input[type="text"], select, textarea, input[type="number"] {
+            background: var(--card); border: 1px solid var(--border); color: var(--text);
+            padding: 10px 12px; border-radius: 8px; font-size: 0.9rem; outline: none;
+        }
+        input[type="text"] { flex: 1; min-width: 200px; }
+
+        .tabs { display: flex; gap: 8px; margin-bottom: 16px; overflow-x: auto; padding-bottom: 4px; }
+        .tab { background: var(--card); border: 1px solid var(--border); color: var(--text-muted); padding: 6px 14px; border-radius: 20px; cursor: pointer; font-size: 0.85rem; white-space: nowrap; }
+        .tab.active { background: var(--accent); color: white; border-color: var(--accent); }
+
+        .book-list { display: flex; flex-direction: column; gap: 12px; }
+        .book-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; cursor: pointer; transition: 0.2s; }
+        .book-card:hover { background: var(--card-hover); }
+        .book-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+        .book-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 4px; }
+        .book-author { font-size: 0.85rem; color: var(--text-muted); }
+        
+        .badge { font-size: 0.75rem; padding: 4px 8px; border-radius: 6px; font-weight: 600; white-space: nowrap; }
+        .status-reading { background: rgba(245, 158, 11, 0.15); color: var(--yellow); }
+        .status-done { background: rgba(16, 185, 129, 0.15); color: var(--green); }
+        .status-plan { background: rgba(99, 102, 241, 0.15); color: var(--accent); }
+
+        .progress-wrap { margin-top: 12px; }
+        .progress-info { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px; }
+        .progress-bar { height: 6px; background: var(--bg); border-radius: 3px; overflow: hidden; }
+        .progress-fill { height: 100%; background: var(--accent); transition: 0.3s; }
+
+        .book-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; font-size: 0.8rem; color: var(--text-muted); }
+        .stars { color: var(--yellow); letter-spacing: 2px; }
+
+        /* Модальное окно */
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); justify-content: center; align-items: center; padding: 16px; z-index: 100; }
+        .modal.open { display: flex; }
+        .modal-content { background: var(--card); border: 1px solid var(--border); border-radius: 14px; width: 100%; max-width: 500px; padding: 20px; max-height: 90vh; overflow-y: auto; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .close-btn { background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer; }
+        
+        .form-group { margin-bottom: 14px; }
+        .form-group label { display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 6px; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .modal-actions { display: flex; justify-content: space-between; margin-top: 20px; gap: 10px; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>📚 Мой дневник</h1>
+    <button class="btn" onclick="openModal()">+ Книга</button>
+</header>
+
+<div class="stats">
+    <div class="stat-box">
+        <div class="stat-num" id="stat-done">0</div>
+        <div class="stat-label">Прочитано</div>
+    </div>
+    <div class="stat-box">
+        <div class="stat-num" id="stat-reading">0</div>
+        <div class="stat-label">Читаю сейчас</div>
+    </div>
+    <div class="stat-box">
+        <div class="stat-num" id="stat-pages">0</div>
+        <div class="stat-label">Страниц прочтено</div>
+    </div>
+</div>
+
+<div class="controls">
+    <input type="text" id="search" placeholder="Поиск по названию, автору или заметкам..." oninput="renderBooks()">
+</div>
+
+<div class="tabs">
+    <div class="tab active" onclick="setFilter('all', this)">Все</div>
+    <div class="tab" onclick="setFilter('reading', this)">Читаю</div>
+    <div class="tab" onclick="setFilter('done', this)">Прочитано</div>
+    <div class="tab" onclick="setFilter('plan', this)">В планах</div>
+</div>
+
+<div class="book-list" id="book-list"></div>
+
+<!-- Модальное окно -->
+<div class="modal" id="bookModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="modalTitle" style="font-size: 1.2rem;">Добавить книгу</h2>
+            <button class="close-btn" onclick="closeModal()">&times;</button>
+        </div>
+        <input type="hidden" id="bookId">
+        <div class="form-group">
+            <label>Название книги *</label>
+            <input type="text" id="title" placeholder="Например: Атомные привычки">
+        </div>
+        <div class="form-group">
+            <label>Автор *</label>
+            <input type="text" id="author" placeholder="Джеймс Клир">
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Статус</label>
+                <select id="status">
+                    <option value="reading">Читаю сейчас</option>
+                    <option value="done">Прочитано</option>
+                    <option value="plan">В планах</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Оценка (1–5)</label>
+                <select id="rating">
+                    <option value="0">Без оценки</option>
+                    <option value="5">★★★★★ (5)</option>
+                    <option value="4">★★★★☆ (4)</option>
+                    <option value="3">★★★☆☆ (3)</option>
+                    <option value="2">★★☆☆☆ (2)</option>
+                    <option value="1">★☆☆☆☆ (1)</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Прочитано страниц</label>
+                <input type="number" id="currentPage" value="0" min="0">
+            </div>
+            <div class="form-group">
+                <label>Всего страниц</label>
+                <input type="number" id="totalPages" value="300" min="1">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Цитаты, инсайты, впечатления</label>
+            <textarea id="notes" rows="4" placeholder="Запишите главные мысли из книги..."></textarea>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-outline" id="deleteBtn" style="color: var(--red); border-color: var(--red); display: none;" onclick="deleteBook()">Удалить</button>
+            <div style="margin-left: auto; display: flex; gap: 10px;">
+                <button class="btn btn-outline" onclick="closeModal()">Отмена</button>
+                <button class="btn" onclick="saveBook()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const defaultBooks = [
+        { id: 1, title: 'Поток. Психология оптимального переживания', author: 'Михай Чиксентмихайи', status: 'done', rating: 5, currentPage: 460, totalPages: 460, notes: 'Отличная база по концентрации. Состояние потока возникает на грани между скукой и тревогой, когда сложность задачи чуть выше текущих навыков.' },
+        { id: 2, title: 'Дюна', author: 'Фрэнк Герберт', status: 'reading', rating: 0, currentPage: 245, totalPages: 704, notes: '«Страх убивает разум». Потрясающая проработка мира и политических интриг.' },
+        { id: 3, title: 'Черный лебедь', author: 'Нассим Талеб', status: 'plan', rating: 0, currentPage: 0, totalPages: 736, notes: 'Разобраться в оценке рисков и непредсказуемых событий.' }
+    ];
+
+    let books = JSON.parse(localStorage.getItem('readingDiary')) || defaultBooks;
+    let currentFilter = 'all';
+
+    function saveToStorage() {
+        localStorage.setItem('readingDiary', JSON.stringify(books));
+    }
+
+    function setFilter(filter, el) {
+        currentFilter = filter;
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        el.classList.add('active');
+        renderBooks();
+    }
+
+    function updateStats() {
+        const done = books.filter(b => b.status === 'done').length;
+        const reading = books.filter(b => b.status === 'reading').length;
+        const pages = books.reduce((sum, b) => sum + (Number(b.currentPage) || 0), 0);
+
+        document.getElementById('stat-done').textContent = done;
+        document.getElementById('stat-reading').textContent = reading;
+        document.getElementById('stat-pages').textContent = pages;
+    }
+
+    function renderBooks() {
+        const list = document.getElementById('book-list');
+        const query = document.getElementById('search').value.toLowerCase();
+        list.innerHTML = '';
+
+        const filtered = books.filter(b => {
+            const matchesFilter = currentFilter === 'all' || b.status === currentFilter;
+            const matchesSearch = b.title.toLowerCase().includes(query) || 
+                                  b.author.toLowerCase().includes(query) || 
+                                  (b.notes && b.notes.toLowerCase().includes(query));
+            return matchesFilter && matchesSearch;
+        });
+
+        filtered.forEach(book => {
+            const pct = book.totalPages > 0 ? Math.min(100, Math.round((book.currentPage / book.totalPages) * 100)) : 0;
+            const statusMap = {
+                reading: ['Читаю', 'status-reading'],
+                done: ['Прочитано', 'status-done'],
+                plan: ['В планах', 'status-plan']
+            };
+            const stars = book.rating > 0 ? '★'.repeat(book.rating) + '☆'.repeat(5 - book.rating) : 'Без оценки';
+
+            const card = document.createElement('div');
+            card.className = 'book-card';
+            card.onclick = () => openModal(book.id);
+            card.innerHTML = `
+                <div class="book-header">
+                    <div>
+                        <div class="book-title">${book.title}</div>
+                        <div class="book-author">${book.author}</div>
+                    </div>
+                    <span class="badge ${statusMap[book.status][1]}">${statusMap[book.status][0]}</span>
+                </div>
+                ${book.status !== 'plan' ? `
+                <div class="progress-wrap">
+                    <div class="progress-info">
+                        <span>Прогресс: ${book.currentPage} из ${book.totalPages} стр.</span>
+                        <span>${pct}%</span>
+                    </div>
+                    <div class="progress-bar"><div class="progress-fill" style="width: ${pct}%"></div></div>
+                </div>` : ''}
+                <div class="book-meta">
+                    <span class="stars">${stars}</span>
+                    <span>${book.notes ? '📝 Есть заметки' : ''}</span>
+                </div>
+            `;
+            list.appendChild(card);
+        });
+
+        updateStats();
+    }
+
+    function openModal(id = null) {
+        const modal = document.getElementById('bookModal');
+        const deleteBtn = document.getElementById('deleteBtn');
+        
+        if (id) {
+            const book = books.find(b => b.id === id);
+            document.getElementById('modalTitle').textContent = 'Редактировать книгу';
+            document.getElementById('bookId').value = book.id;
+            document.getElementById('title').value = book.title;
+            document.getElementById('author').value = book.author;
+            document.getElementById('status').value = book.status;
+            document.getElementById('rating').value = book.rating;
+            document.getElementById('currentPage').value = book.currentPage;
+            document.getElementById('totalPages').value = book.totalPages;
+            document.getElementById('notes').value = book.notes || '';
+            deleteBtn.style.display = 'block';
+        } else {
+            document.getElementById('modalTitle').textContent = 'Новая книга';
+            document.getElementById('bookId').value = '';
+            document.getElementById('title').value = '';
+            document.getElementById('author').value = '';
+            document.getElementById('status').value = 'reading';
+            document.getElementById('rating').value = '0';
+            document.getElementById('currentPage').value = '0';
+            document.getElementById('totalPages').value = '300';
+            document.getElementById('notes').value = '';
+            deleteBtn.style.display = 'none';
+        }
+        modal.classList.add('open');
+    }
+
+    function closeModal() {
+        document.getElementById('bookModal').classList.remove('open');
+    }
+
+    function saveBook() {
+        const id = document.getElementById('bookId').value;
+        const title = document.getElementById('title').value.trim();
+        const author = document.getElementById('author').value.trim();
+        if (!title || !author) return alert('Укажите название и автора');
+
+        const status = document.getElementById('status').value;
+        const totalPages = Number(document.getElementById('totalPages').value) || 1;
+        let currentPage = Number(document.getElementById('currentPage').value) || 0;
+        if (status === 'done') currentPage = totalPages;
+
+        const bookData = {
+            id: id ? Number(id) : Date.now(),
+            title,
+            author,
+            status,
+            rating: Number(document.getElementById('rating').value),
+            currentPage,
+            totalPages,
+            notes: document.getElementById('notes').value.trim()
+        };
+
+        if (id) {
+            const idx = books.findIndex(b => b.id === Number(id));
+            books[idx] = bookData;
+        } else {
+            books.unshift(bookData);
+        }
+
+        saveToStorage();
+        renderBooks();
+        closeModal();
+    }
+
+    function deleteBook() {
+        const id = Number(document.getElementById('bookId').value);
+        if (confirm('Удалить эту книгу из дневника?')) {
+            books = books.filter(b => b.id !== id);
+            saveToStorage();
+            renderBooks();
+            closeModal();
+        }
+    }
+
+    renderBooks();
+</script>
+</body>
+</html>
+ 
